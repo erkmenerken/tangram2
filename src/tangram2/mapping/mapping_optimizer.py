@@ -269,7 +269,17 @@ class Mapper:
             loss = run_loss["total_loss"]
 
             for key in keys:
-                training_history[key].append(run_loss.get(key))
+                # Diagnostics must not retain autograd graphs and must
+                # remain serializable by AnnData. The optimization loss above
+                # retains its gradients; only the recorded copy is detached.
+                value = run_loss.get(key)
+                if isinstance(value, torch.Tensor):
+                    value = value.detach().cpu().numpy().copy()
+                    if value.ndim == 0:
+                        value = float(value)
+                elif value is None:
+                    value = np.nan
+                training_history[key].append(value)
 
             optimizer.zero_grad()
             loss.backward()
